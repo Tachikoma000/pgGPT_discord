@@ -8,6 +8,12 @@ from llama_index import Prompt, VectorStoreIndex, SimpleDirectoryReader  # Data 
 from llama_index.storage.storage_context import StorageContext  # Storage context for vector stores
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings  # HuggingFace based embedding models
 from llama_index import LangchainEmbedding, ServiceContext, LLMPredictor  # Context, prediction and embedding models for Langchain
+from langchain.chains.conversation.memory import ConversationBufferMemory
+from langchain.agents import initialize_agent
+from llama_index.langchain_helpers.agents import LlamaToolkit, create_llama_chat_agent, IndexToolConfig
+from langchain.chains.conversation.memory import ConversationBufferMemory
+from langchain.agents import initialize_agent
+from llama_index.langchain_helpers.agents import LlamaToolkit, create_llama_chat_agent, IndexToolConfig
 
 from config import OPENAI_API_KEY # API key for OpenAI model
 
@@ -89,16 +95,33 @@ if collection.count() == 0:
 # Get vector store, storage context, and index from the collection
 vector_store, storage_context, index = get_vector_store_index(collection, embed_model=embed_model, service_context=service_context)
 
-# Use the created index to query data
-# Here the AI is asked to teach about subgrounds, the various ways to query with subgrounds and how to use synthetic fields
-# The query engine uses the custom prompt defined earlier and streams the response
-# query_engine = index.as_query_engine(text_qa_template=TEACHING_PROMPT, streaming=True)
-# response = query_engine.query("Teach me about subgrounds, the various way to qury with subgrounds and how to use synthetic fields. Give me code examples as well.")
-# response.print_response_stream()
+# Create memory to store the conversation history
+memory = ConversationBufferMemory(memory_key="chat_history")
 
-# Use the created index to query data
-# Here the AI is asked to teach about subgrounds, the various ways to query with subgrounds and how to use synthetic fields
-# The query engine uses the custom prompt defined earlier and streams the response
-chat_engine = index.as_chat_engine(text_qa_template=TEACHING_PROMPT, streaming=True)
-response = chat_engine.chat("Teach me about subgrounds, the various way to qury with subgrounds and how to use synthetic fields. Give me code examples as well.")
-response.print_response_stream()
+# Create an IndexToolConfig for your index
+index_tool_config = IndexToolConfig(
+    query_engine=index.as_query_engine(text_qa_template=TEACHING_PROMPT, streaming=True), 
+    name="Subgrounds Index",
+    description="Useful for answering questions about Subgrounds",
+    tool_kwargs={"return_direct": True}
+)
+
+# Create the LlamaToolkit, you can add more IndexToolConfigs if you have multiple indices
+toolkit = LlamaToolkit(index_configs=[index_tool_config])
+
+# Finally, create the chatbot agent
+agent_chain = create_llama_chat_agent(
+    toolkit,
+    llm,
+    memory=memory,
+    verbose=True,
+    streaming=True
+)
+
+# Chat agent loop
+while True:
+    user_input = input("User: ")
+    if user_input.lower() == "quit":
+        break
+    response = agent_chain.run(input=user_input)
+    print(f'Agent: {response}')
