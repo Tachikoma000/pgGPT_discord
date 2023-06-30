@@ -1,0 +1,17 @@
+PyMuPDF
+numpy
+scikit-learn
+tensorflow>=2.0.0
+tensorflow-hub
+openai
+gradio
+langchain-serve>=0.0.19
+
+fastapi
+tensorflow_hub
+fitz
+PyMuPDF
+requests
+urllib3
+
+discord
