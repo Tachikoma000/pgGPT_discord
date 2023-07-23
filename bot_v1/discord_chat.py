@@ -1,13 +1,8 @@
 import discord
 from discord import Message as DiscordMessage
-from discord.ext import commands
 import logging
-import os
-
-from api_md import get_markdown, load_recommender
-
-from discord_components.base import Message, Conversation
-from discord_components.constants import (
+from src.base import Message, Conversation
+from src.constants import (
     BOT_INVITE_URL,
     DISCORD_BOT_TOKEN,
     EXAMPLE_CONVOS,
@@ -16,16 +11,16 @@ from discord_components.constants import (
     SECONDS_DELAY_RECEIVING_MSG,
 )
 import asyncio
-from discord_components.utils import (
+from src.utils import (
     logger,
     should_block,
     close_thread,
     is_last_message_stale,
     discord_message_to_message,
 )
-from discord_components import completion
-from discord_components.completion import generate_completion_response, process_response
-from discord_components.moderation import (
+from src import completion
+from src.completion import generate_completion_response, process_response
+from src.moderation import (
     moderate_message,
     send_moderation_blocked_message,
     send_moderation_flagged_message,
@@ -131,7 +126,10 @@ async def chat_command(int: discord.Interaction, message: str):
         )
         async with thread.typing():
             # fetch completion
-            response_data = get_markdown(message)  # CHANGE HERE
+            messages = [Message(user=user.name, text=message)]
+            response_data = await generate_completion_response(
+                messages=messages, user=user
+            )
             # send the result
             await process_response(
                 user=user, thread=thread, response_data=response_data
@@ -244,9 +242,11 @@ async def on_message(message: DiscordMessage):
         channel_messages = [x for x in channel_messages if x is not None]
         channel_messages.reverse()
 
-        # Generate the response
+        # generate the response
         async with thread.typing():
-            response_data = get_markdown(message.content)
+            response_data = await generate_completion_response(
+                messages=channel_messages, user=message.author
+            )
 
         if is_last_message_stale(
             interaction_message=message,

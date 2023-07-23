@@ -13,5 +13,11 @@ fitz
 PyMuPDF
 requests
 urllib3
+gql
 
 discord
+
+discord.py==2.1.*
+python-dotenv==0.21.*
+PyYAML==6.0
+dacite==1.6.*

@@ -31,30 +31,28 @@ def get_vector_store_index(chroma_collection, documents=None, embed_model=None, 
 # It's flexible and can be used to shape the AI's response to a wide variety of questions
 # It's a helpful tool for creating more context-aware responses from the AI
 TEACHING_PROMPT = Prompt(
-    "Instructions: As an AI, your role is to provide expert assistance and education on 'Subgrounds' "
-    "based on the document information provided below:\n"
+    "Instructions: As an AI with expertise in 'Subgrounds', your primary goal is to assist and educate users. Generate "
+    "queries or provide information based on the Subgrounds document given below, strictly adhering to its guidance. Your responses "
+    "should balance accuracy and consistency.\n"
     "---------------------\n"
     "{context_str}"
     "\n---------------------\n"
-    "When you are asked a question: {query_str}, you should provide detailed explanations, code examples, "
-    "and solutions using this knowledge. Strictly adhere to the information, structures, and syntax "
-    "present in these documents. Do not create new Fields, Entities, or filter arguments - use only "
-    "the ones provided by the user or present in the documents."
-    "\n\n"
-    "In case of code examples, follow the syntax found in the documents. Do not invent your own examples "
-    "or extrapolate beyond the information provided. "
-    "Whenever you provide information or code, reference the part of the documentation it was "
-    "derived from using the format [Doc Number], Relevance: [Relevance score]'. This way, users can "
-    "refer back to the original documents for context and further learning."
-    "\n\n"
-    "If you provide Subgrounds code or examples, follow the structure and syntax as provided in the documents. "
-    "Your role is to assist and educate - avoid inventing or creating new concepts or structures. "
-    "Avoid adding any information not present in the documents or provided by the user (hallucinations)."
-    "\n\n"
-    "Always provide the reference documentation website: https://docs.playgrounds.network/subgrounds/ ."
-    "\n\n"
-    "Remember your goal: assist, educate, and provide accurate information based on the given documents.\n"
+    "Consider a user query such as: {query_str}. Depending on the nature of the request, you should respond in one of two ways:\n\n"
+    
+    "1. If the user seeks information available in the Subgrounds document, present a detailed explanation using "
+    "the document's language. Reference the source as 'Document: [Doc Number], Relevance: [Relevance score]' to allow users "
+    "to review the original context. Include the documentation website link: "
+    "https://docs.playgrounds.network/subgrounds/ in your response.\n\n"
+
+    "2. If the user needs help crafting a Subgrounds query, generate code emulating the document's examples. Use sg.query_df "
+    "to retrieve query results unless instructed otherwise. Again, cite the relevant document references and include the website link "
+    "in your response.\n\n"
+    
+    "Your objective is to provide accurate and consistent information, aiding in the understanding of Subgrounds. Remember, "
+    "adherence to the document examples and knowledge is crucial."
 )
+
+
 
 # Create a ChromaDB client with settings to use DuckDB implementation and persist data in a directory named "chroma_db"
 chroma_client = chromadb.Client(Settings(
@@ -69,7 +67,7 @@ collection = chroma_client.get_or_create_collection("subgrounds_collection")
 embed_model = LangchainEmbedding(HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2"))
 
 # Define the Language Model and its predictor
-llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0.3, streaming=True)
+llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0.2, streaming=True)
 llm_predictor = LLMPredictor(llm=llm)
 
 # Define service context which holds the AI language model and the language model predictor
@@ -100,5 +98,5 @@ vector_store, storage_context, index = get_vector_store_index(collection, embed_
 # Here the AI is asked to teach about subgrounds, the various ways to query with subgrounds and how to use synthetic fields
 # The query engine uses the custom prompt defined earlier and streams the response
 chat_engine = index.as_chat_engine(text_qa_template=TEACHING_PROMPT, streaming=True)
-response = chat_engine.chat("Teach me about subgrounds, the various way to qury with subgrounds and how to use synthetic fields. Give me code examples as well.")
+response = chat_engine.chat("write me a subgrounds query to query the mochi_mochi subgraph to query the mochiEarns entiy and the mochiCustomer field. used synthetic fields to divide mochiCustomer by 2")
 response.print_response_stream()

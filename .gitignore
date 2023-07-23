@@ -1,3 +1,36 @@
 config.py
 __pycache__
 pgdiscord
+
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.env
+
+# Directories
+/.idea
+/venv/
+*.egg-info/
+
+# Logs
+*.log
+logs
+
+# Coverage reports
+coverage/
+.htmlcov/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# PyCharm project settings
+.idea/
