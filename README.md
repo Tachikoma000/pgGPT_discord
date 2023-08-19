@@ -1,11 +1,11 @@
-# pgGPT Discord Bot - Developer's Guide
+# pgGPT_Discord Bot
 
 The pgGPT Discord Bot is a multi-faceted integration designed for Discord servers. With a primary focus on leveraging the capabilities of the Playgrounds GraphQL API, this bot aims to provide a seamless interface for querying decentralized subgraphs directly within Discord. Further enhancing its capabilities is the integration of a sophisticated AI language model, enabling intelligent interactions and in-depth assistance for `Subgrounds`.
 
 ---
 
 ## 📌 Table of Contents:
-- [pgGPT Discord Bot - Developer's Guide](#pggpt-discord-bot---developers-guide)
+- [pgGPT\_Discord Bot](#pggpt_discord-bot)
   - [📌 Table of Contents:](#-table-of-contents)
   - [1. 🏗 System Architecture:](#1--system-architecture)
     - [Key Components:](#key-components)
