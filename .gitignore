@@ -3,6 +3,7 @@ __pycache__
 pgdiscord
 .pytest_cache
 pgbot
+pgai
 
 __pycache__/
 *.py[cod]

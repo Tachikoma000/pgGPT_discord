@@ -10,20 +10,22 @@ from llama_index import Prompt, VectorStoreIndex, SimpleDirectoryReader  # Data 
 from llama_index.storage.storage_context import StorageContext  # Storage context for vector stores
 from langchain.embeddings.huggingface import HuggingFaceEmbeddings  # HuggingFace based embedding models
 from llama_index import LangchainEmbedding, ServiceContext, LLMPredictor  # Context, prediction and embedding models for Langchain
-
-from config import OPENAI_API_KEY # API key for OpenAI model
+from dotenv import load_dotenv
+# from config import OPENAI_API_KEY # API key for OpenAI model
 
 class AIChatSystem:
 
     def __init__(self):
+        load_dotenv()
+        OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+        if not OPENAI_API_KEY:
+            raise ValueError("Missing OpenAI API key!")
+        
         self.init_chat_system()
 
     def init_chat_system(self):
-        # Create a ChromaDB client with settings to use DuckDB implementation and persist data in a directory named "chroma_db"
-        self.chroma_client = chromadb.Client(Settings(
-            chroma_db_impl="duckdb+parquet",
-            persist_directory="./chroma_db"
-        ))
+        # Create a ChromaDB client using the new method
+        self.chroma_client = chromadb.PersistentClient(path="./chroma_db")
 
         # Retrieve an existing collection or create a new one if it doesn't exist
         self.collection = self.chroma_client.get_or_create_collection("subgrounds_collection")
