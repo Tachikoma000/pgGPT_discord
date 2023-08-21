@@ -20,10 +20,10 @@ class AILangChain:
             raise ValueError("Missing OpenAI API key!")
 
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        lib_docs_path = os.path.join(current_dir, "lib_docs.md")
+        lib_docs_path = os.path.join(current_dir, "data/playgrounds_docs_cleaned.md")
         loader = TextLoader(lib_docs_path)
         documents = loader.load()
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         docs = text_splitter.split_documents(documents)
 
         embeddings = OpenAIEmbeddings()
@@ -79,7 +79,7 @@ class AILangChain:
                                                         retriever=retriever, 
                                                         condense_question_prompt=FULL_PROMPT_TEMPLATE, 
                                                         return_source_documents=True, 
-                                                        verbose=True)
+                                                        verbose=False)
     
     def ask(self, query):
         chat_history = []

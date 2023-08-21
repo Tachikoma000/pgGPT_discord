@@ -7,7 +7,7 @@ import logging
 import discord
 from dotenv import load_dotenv
 from .bot.features.graphql_query.graphql_handler import GraphQLHandler
-from ai_experiments.pgai_v2 import AILangChain
+from llm_system.pgGPT import AILangChain
 
 # Load environment variables
 load_dotenv()
