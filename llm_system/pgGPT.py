@@ -1,5 +1,4 @@
 import os
-import getpass
 from langchain.llms import OpenAI
 from dotenv import load_dotenv
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -7,10 +6,10 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from langchain.document_loaders import TextLoader
 from langchain.prompts import PromptTemplate
-from langchain.prompts import ChatPromptTemplate
-from langchain.chains import ConversationalRetrievalChain
-from langchain.chains.question_answering import load_qa_chain
 from langchain.chains import RetrievalQA
+from langchain.llms import GPT4All
+from langchain.chat_models import ChatOpenAI
+
 
 class AILangChain:
     def __init__(self):
@@ -20,10 +19,10 @@ class AILangChain:
             raise ValueError("Missing OpenAI API key!")
 
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        lib_docs_path = os.path.join(current_dir, "data/playgrounds_docs_cleaned.md")
+        lib_docs_path = os.path.join(current_dir, "data/playgrounds_docs_with_code_cleaned.md")
         loader = TextLoader(lib_docs_path)
         documents = loader.load()
-        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
         docs = text_splitter.split_documents(documents)
 
         embeddings = OpenAIEmbeddings()
@@ -36,56 +35,49 @@ class AILangChain:
         # Load the FAISS vector store
         vectorStore = FAISS.load_local("faiss_index", embeddings)
 
-        llm = OpenAI(openai_api_key=OPENAI_API_KEY, temperature=0.2)
-
-        # Use the FAISS vector store to search the local document
-        retriever = vectorStore.as_retriever(search_type="similarity", search_kwargs={"k":6})
-
-        TEACHING_PROMPT_TEXT = ("Instructions: As an AI with expertise in 'Subgrounds', your primary goal is to assist and educate users. Generate "
-    "queries or provide information based on the Subgrounds document given below, strictly adhering to its guidance. Your responses "
-    "should balance accuracy and consistency.\n"
-    "---------------------\n"
-    "{chat_history}"
-    "\n---------------------\n"
-    "Consider a user query such as: {question}. Depending on the nature of the request, you should respond in one of two ways:\n\n"
-    
-    "1. If the user seeks information available in the Subgrounds document, present a detailed explanation using "
-    "the document's language. Reference the source as 'Document: [Doc Number], Relevance: [Relevance score]' to allow users "
-    "to review the original context. Include the documentation website link: "
-    "https://docs.playgrounds.network/subgrounds/ in your response.\n\n"
-
-    "2. If the user needs help crafting a Subgrounds query, generate code emulating the document's examples. Use sg.query_df "
-    "to retrieve query results unless instructed otherwise. Again, cite the relevant document references and include the website link "
-    "in your response.\n\n"
-    
-    "Your objective is to provide accurate and consistent information, aiding in the understanding of Subgrounds. Remember, "
-    "adherence to the document examples and knowledge is crucial.")
+        # model_path = os.path.join(current_dir, "models/wizardlm-13b-v1.1-superhot-8k.ggmlv3.q4_0.bin")
+        llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.2)
 
 
-        # QUESTION_PROMPT_TEXT = (
-        #     "Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question.\n"
-        #     "Chat History:\n"
-        #     "{chat_history}\n"
-        #     "Follow Up Input: {question}\n"
-        #     "Standalone question:\n"
-        # )
-
-        FULL_PROMPT_TEMPLATE = PromptTemplate.from_template(
-            TEACHING_PROMPT_TEXT
+        # Define the custom prompt template
+        TEACHING_PROMPT_TEXT = (
+            "Instructions: As an AI with expertise in 'Subgrounds', your primary goal is to assist and educate users. Generate "
+            "queries or provide information based on the Subgrounds document given below, strictly adhering to its guidance. Your responses "
+            "should balance accuracy and consistency.\n"
+            "---------------------\n"
+            "{context}"
+            "\n---------------------\n"
+            "Consider a user query such as: {question}. Depending on the nature of the request, you should respond in one of two ways:\n\n"
+            "1. If the user seeks information available in the Subgrounds document, present a detailed explanation using "
+            "the document's language. Reference the source as 'Document: [Doc Number], Relevance: [Relevance score]' to allow users "
+            "to review the original context. Include the documentation website link: "
+            "https://docs.playgrounds.network/subgrounds/ in your response.\n\n"
+            "2. If the user needs help crafting a Subgrounds query, generate code emulating the document's examples. Use sg.query_df "
+            "to retrieve query results unless instructed otherwise. Again, cite the relevant document references and include the website link "
+            "in your response.\n\n"
+            "Your objective is to provide accurate and consistent information, aiding in the understanding of Subgrounds. Remember, "
+            "adherence to the document examples and knowledge is crucial."
+            "KEEP YOUR RESPONSES CONCISE and Short. Minimize word counts to 1000 characters"
         )
 
+        FULL_PROMPT = PromptTemplate.from_template(TEACHING_PROMPT_TEXT)
 
-        self.qa = ConversationalRetrievalChain.from_llm(llm=llm,
-                                                        retriever=retriever, 
-                                                        condense_question_prompt=FULL_PROMPT_TEMPLATE, 
-                                                        return_source_documents=True, 
-                                                        verbose=False)
-    
+        # Pass the custom prompt template to RetrievalQA
+        self.qa = RetrievalQA.from_chain_type(
+            llm, 
+            retriever=vectorStore.as_retriever(),
+            chain_type_kwargs={"prompt": FULL_PROMPT}
+        )
+
     def ask(self, query):
-        chat_history = []
-        return self.ask_question_with_context(query, chat_history)
-    
-    def ask_question_with_context(self, question, chat_history):
-        result = self.qa({"question": question, "chat_history": chat_history})
-        chat_history = [(question, result["answer"])]
-        return chat_history
+        context = ""  # Initial context is empty
+        return self.ask_question_with_context(query, context)
+        
+    def ask_question_with_context(self, question, context=None):
+        context = context or ""  # Set a default value if context is None
+        result = self.qa({"query": question, "context": context})
+        answer = result.get("result", "Sorry, I couldn't find an answer.")  # Extract the answer from the "result" key
+        return [(question, answer)]
+
+
+

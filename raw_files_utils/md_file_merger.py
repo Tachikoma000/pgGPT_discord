@@ -5,8 +5,8 @@ def merge_md_files(input_file1, input_file2, output_file):
         outfile.write(file2.read())
 
 # Example usage
-file1 = 'api_refs_docs.md'  # replace with your first input filename
-file2 = 'lib_docs.md'  # replace with your second input filename
+file1 = 'playgrounds_docs_cleaned.md'  # replace with your first input filename
+file2 = 'subgrounds_code_examples.md'  # replace with your second input filename
 output_file = 'merged_raw_docs.md'  # replace with your desired output filename
 
 merge_md_files(file1, file2, output_file)

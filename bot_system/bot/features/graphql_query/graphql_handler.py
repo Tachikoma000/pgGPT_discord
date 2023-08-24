@@ -2,6 +2,9 @@ import requests
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GraphQLHandler:
     # This handler will be responsible for interacting with the Subgraph URL and executing GraphQL queries. 
@@ -18,11 +21,13 @@ class GraphQLHandler:
         }
         if self.api_key:
             headers["Playgrounds-Api-Key"] = self.api_key
+            logger.info("Setting up client with API key.")
 
         url = f"https://api.playgrounds.network/v1/proxy/subgraphs/id/{self.subgraph_id}"
         if self.deployment:
             url = f"https://api.playgrounds.network/v1/proxy/deployments/id/{self.subgraph_id}"
 
+        logger.info(f"Setting up GraphQL client with URL: {url}")
         transport = RequestsHTTPTransport(
             url=url,
             headers=headers,
@@ -32,6 +37,7 @@ class GraphQLHandler:
         return client
 
     def introspect_schema(self):
+        logger.info("Introspecting schema.")
         # Schema Introspection
         introspection_query = gql(
             """
@@ -77,6 +83,7 @@ class GraphQLHandler:
         return fields
 
     def run_query(self, entity, fields):
+        logger.info(f"Running query for entity: {entity}")
         # Convert the entity name to camelCase and pluralize it
         entity = entity[0].lower() + entity[1:] + 's'
 
@@ -102,4 +109,5 @@ class GraphQLHandler:
         return df
 
     def query_to_csv(self, df, filename):
+        logger.info(f"Saving query results to CSV: {filename}")
         df.to_csv(filename, index=False)
