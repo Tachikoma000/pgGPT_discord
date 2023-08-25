@@ -51,13 +51,12 @@ class AILangChain:
             "1. If the user seeks information available in the Subgrounds document, present a detailed explanation using "
             "the document's language. Reference the source as 'Document: [Doc Number], Relevance: [Relevance score]' to allow users "
             "to review the original context. Include the documentation website link: "
-            "https://docs.playgrounds.network/subgrounds/ in your response.\n\n"
+            "https://docs.playgrounds.network/subgrounds/ in your response. Ensure your response is as concise as possible, keeping word count low\n\n"
             "2. If the user needs help crafting a Subgrounds query, generate code emulating the document's examples. Use sg.query_df "
             "to retrieve query results unless instructed otherwise. Again, cite the relevant document references and include the website link "
-            "in your response.\n\n"
+            "in your response. Ensure your response is as concise as possible, keeping word count low\n\n"
             "Your objective is to provide accurate and consistent information, aiding in the understanding of Subgrounds. Remember, "
-            "adherence to the document examples and knowledge is crucial."
-            "KEEP YOUR RESPONSES CONCISE and Short. Minimize word counts to 1000 characters"
+            "adherence to the document examples and knowledge is crucial.Ensure your response is as concise as possible, keeping word count low"
         )
 
         FULL_PROMPT = PromptTemplate.from_template(TEACHING_PROMPT_TEXT)
