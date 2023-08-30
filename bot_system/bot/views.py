@@ -1,8 +1,9 @@
 import os
 import logging
-import discord
+# import discord
 import asyncio
-from .config import client, tree, user_timestamps, BASE_URL, logger
+from .config import bot, user_timestamps, BASE_URL, logger
+import nextcord as discord
 
 class EntitySelectionView(discord.ui.View):
     """A View for selecting an entity from the provided list."""
@@ -66,3 +67,23 @@ class EntitySelectionView(discord.ui.View):
         except Exception as e:
             # General error handling for other unforeseen issues
             logger.error(f"Unexpected error: {e}")
+            
+
+# class FeedbackForm(discord.ui.View):
+#     def __init__(self):
+#         super().__init__(timeout=180)
+        
+#         # Adding a Text Input component
+#         self.add_item(nc.ui.TextInput(
+#             label="Your Feedback",
+#             custom_id="feedback_text_input",
+#             placeholder="Type your feedback here...",
+#             min_length=1,
+#             max_length=500  # Assuming a max length of 500 characters
+#         ))
+        
+#     @discord.ui.text_input(custom_id="feedback_text_input")
+#     async def handle_text_input(self, interaction: discord.Interaction, value: str):
+#         # Handle the feedback received
+#         await interaction.response.send_message(f"Received your feedback: {value}")
+

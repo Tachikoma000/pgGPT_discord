@@ -2,8 +2,9 @@ import os
 import logging
 import re
 import asyncio
-import discord
-from .config import client, tree, user_timestamps, BASE_URL, logger
+# import discord
+import nextcord as discord
+from .config import bot, user_timestamps, BASE_URL, logger
 
 def format_code_for_discord(response: str) -> str:
     # Using regex to detect patterns that might be Python code

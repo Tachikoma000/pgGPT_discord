@@ -1,22 +1,25 @@
 import os
 import time
 import logging
-import discord
+# import discord
+import motor.motor_asyncio
 import traceback 
 from llm_system.pgGPT import AILangChain
-from .config import client, tree, user_timestamps, BASE_URL, logger
+from .config import bot, user_timestamps, BASE_URL, logger
 from .utilities import send_with_retry
+# from .views import FeedbackForm
 from .views import EntitySelectionView
 from .features.graphql_query.graphql_handler import GraphQLHandler
+from .features.subgraph_catalog.mongo_handler import MongoHandler
+import nextcord as discord
+from nextcord.ext import commands
 
 
-@client.event
+@bot.event
 async def on_ready():
-    logger.info(f"We have logged in as {client.user}")
-    await tree.sync()
+    logger.info(f"We have logged in as {bot.user}")
 
-
-@tree.command(name="help", description="Shows a list of all commands and their descriptions")
+@bot.slash_command(name="help", description="Shows a list of all commands and their descriptions")
 async def help_command(int: discord.Interaction):
     commands = {
         "hello": "Create a new thread for conversation",
@@ -25,25 +28,17 @@ async def help_command(int: discord.Interaction):
     description = "\n".join(f"/{name}: {desc}" for name, desc in commands.items())
     await int.response.send_message(description)
 
-
-@tree.command(name="query_subgraph", description="Create a new thread for querying subgraph")
-@discord.app_commands.checks.has_permissions(send_messages=True)
-@discord.app_commands.checks.has_permissions(view_channel=True)
-@discord.app_commands.checks.bot_has_permissions(send_messages=True)
-@discord.app_commands.checks.bot_has_permissions(view_channel=True)
-@discord.app_commands.checks.bot_has_permissions(manage_threads=True)
+@bot.slash_command(name="query_subgraph", description="Create a new thread for querying subgraph")
 async def query_subgraph_command(int: discord.Interaction, subgraph_id: str):
-    client.loop.create_task(handle_interaction(int, subgraph_id, type='subgraph'))
+    bot.loop.create_task(handle_interaction(int, subgraph_id, type='subgraph'))
 
-
-@tree.command(name="ask_ai", description="Ask a question to the AI")
-@discord.app_commands.checks.has_permissions(send_messages=True)
-@discord.app_commands.checks.has_permissions(view_channel=True)
-@discord.app_commands.checks.bot_has_permissions(send_messages=True)
-@discord.app_commands.checks.bot_has_permissions(view_channel=True)
-@discord.app_commands.checks.bot_has_permissions(manage_threads=True)
+@bot.slash_command(name="ask_ai", description="Ask a question to Playgrounds Ai")
 async def ask_ai_command(int: discord.Interaction, question: str):
-    client.loop.create_task(handle_ai_interaction(int, question))
+    bot.loop.create_task(handle_ai_interaction(int, question))
+    
+@bot.slash_command(name="search_subgraph", description="Search for relevant subgraphs based on a keyword")
+async def search_subgraph_command(int: discord.Interaction, query: str):
+    bot.loop.create_task(handle_subgraph_search(int, query))
 
 
 async def get_api_key(int: discord.Interaction):
@@ -54,7 +49,7 @@ async def get_api_key(int: discord.Interaction):
     def check(m):
         return m.channel == user.dm_channel and m.author == user
     try:
-        message = await client.wait_for('message', check=check, timeout=60.0)
+        message = await bot.wait_for('message', check=check, timeout=60.0)
     except asyncio.TimeoutError:
         await user.dm_channel.send('You did not reply in time, please try again.')
     else:
@@ -73,10 +68,10 @@ async def handle_interaction(int: discord.Interaction, subgraph_id: str, type: s
             return
 
         user = int.user
-        logger.info(f"{int.command.name} command by {user} {subgraph_id}")
+        # logger.info(f"{int.data.name} command by {user} {subgraph_id}")
         try:
             embed = discord.Embed(
-                description=f"<@{user.id}> wants to use {int.command.name} command! 🤖💬",
+                description=f"<@{user.id}> wants to use {int.data['name']} command! 🤖💬",
                 color=discord.Color.green(),
             )
             if type == 'hello':
@@ -174,5 +169,51 @@ async def handle_ai_interaction(int: discord.Interaction, question: str):
     except discord.errors.NotFound:
         # Log the error and potentially retry
         logger.error("Failed to send message due to expired or unknown interaction.")
+        
+async def handle_subgraph_search(int: discord.Interaction, query: str):
+    logger.info(f"Received subgraph search command with query: {query}")
+    
+    # Defer the response immediately
+    await int.response.defer()
 
+    try:
+        # Rate limit
+        user_id = int.user.id
+        if user_id in user_timestamps and time.time() - user_timestamps[user_id] < 1.0:
+            logger.warning(f"Rate limit exceeded for user ID: {user_id}")
+            return
+        user_timestamps[user_id] = time.time()
 
+        if not isinstance(int.channel, discord.TextChannel):
+            logger.warning("Interaction not in a TextChannel. Aborting.")
+            return
+
+        mongo_service = MongoHandler()
+        logger.info(f"Searching MongoDB with query: {query}")
+        items = mongo_service.perform_general_search(query)
+        logger.info(f"Found {len(items)} results for query: {query}")
+
+        if len(items) > 5:
+            logger.info("Displaying top 5 results in Discord.")
+            # Display the results in an embed for Discord
+            results = mongo_service.display_results(items)
+            for name, description, url in results:
+                embed = discord.Embed(title=name, description=description, url=url)
+                await int.followup.send(embed=embed)
+            
+            logger.info("Saving all results to CSV.")
+            # Save all results to CSV
+            message = mongo_service.save_to_csv(items)
+            await int.followup.send(message)
+
+        else:
+            logger.info(f"Displaying all {len(items)} results in Discord.")
+            # Display the results in an embed for Discord
+            results = mongo_service.display_results(items)
+            for name, description, url in results:
+                embed = discord.Embed(title=name, description=description, url=url)
+                await int.followup.send(embed=embed)
+
+    except Exception as e:
+        logger.exception(f"Unexpected error during subgraph search: {e}")
+        await int.followup.send(f"Failed to search subgraphs: {str(e)}", ephemeral=True)
