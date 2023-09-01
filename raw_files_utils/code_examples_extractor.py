@@ -13,12 +13,19 @@ def fetch_ipynb_from_github(github_url):
 
 def process_and_collect_content(github_url):
     """
-    Process a single GitHub URL to fetch a .ipynb file and convert it to Markdown. 
+    Process a single GitHub URL to fetch a .ipynb or .py file and convert it to Markdown. 
     Return the markdown content.
     """
     try:
-        ipynb_content = fetch_ipynb_from_github(github_url)
-        markdown_content = convert_ipynb_to_md(ipynb_content)
+        file_content = fetch_ipynb_from_github(github_url)
+        if ".ipynb" in github_url:
+            markdown_content = convert_ipynb_to_md(file_content)
+        elif ".py" in github_url:
+            # Wrap the Python file content in a Markdown code block
+            markdown_content = "```python\n" + file_content + "\n```\n"
+        else:
+            raise ValueError(f"Unsupported file type in URL: {github_url}")
+        
         print(f"Processed {github_url}")
         return markdown_content
     except Exception as e:
@@ -64,18 +71,12 @@ def main_single_output(url_list, output_filename):
 
 # Example usage:
 urls = [
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/bridges/stargate.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/exchanges/balancer.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/exchanges/bancor.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/exchanges/uniswap_v3.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/lending/aaveV3.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/lending/fraxlend.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/liquid_staking/Lido_Snapshot.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/liquid_staking/Lido_Snapshot_2.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/liquid_staking/Lido_Snapshot_Advanced_1.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/liquid_staking/RocketPool_Snapshot.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/liquid_staking/RocketPool_x_LidoFi_Advanced.ipynb",
-    "https://github.com/Tachikoma000/Subgrounds-Explorations/blob/main/gateway_intro.ipynb",
+    "https://github.com/EdgeCaser/Snapshotsurfer/blob/master/Snapshot%20Surfer%202%20-%20Olympus%20Edition.ipynb",
+    "https://github.com/EdgeCaser/Snapshotsurfer/blob/master/Snapshot%20Surfer%202.ipynb",
+    "https://github.com/EdgeCaser/Snapshotsurfer/blob/master/Snapshotdiver.py",
+    "https://github.com/EdgeCaser/Snapshotsurfer/blob/master/Snapshotsurfer%20Web.py",
+    "https://github.com/EdgeCaser/Snapshotsurfer/blob/master/Snapshotsurfer.ipynb",
+    "https://github.com/EdgeCaser/Snapshotsurfer/blob/master/Snapshotsurfer.py",
 ]
-main_single_output(urls, "subgrounds_code_examples.md")
+main_single_output(urls, "subgrounds_code_examples_vanilla_apis.md")
 

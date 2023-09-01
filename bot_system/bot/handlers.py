@@ -1,18 +1,43 @@
 import os
 import time
 import logging
-# import discord
+import datetime
 import motor.motor_asyncio
 import traceback 
 from llm_system.pgGPT import AILangChain
 from .config import bot, user_timestamps, BASE_URL, logger
 from .utilities import send_with_retry
-# from .views import FeedbackForm
 from .views import EntitySelectionView
 from .features.graphql_query.graphql_handler import GraphQLHandler
 from .features.subgraph_catalog.mongo_handler import MongoHandler
 import nextcord as discord
+from nextcord.ui import View, Button
+from nextcord import ButtonStyle
 from nextcord.ext import commands
+
+
+class EntitySelectionView(View):
+    def __init__(self, entities, interaction, handler):
+        super().__init__(timeout=None)
+        self.interaction = interaction
+        self.handler = handler
+        for entity in entities:
+            self.add_item(EntityButton(label=entity, style=ButtonStyle.primary, handler=handler))
+
+    async def on_timeout(self):
+        await self.interaction.followup.send("You took too long to select an entity. Please restart the query process if you wish to continue.", ephemeral=True)
+
+class EntityButton(Button):
+    def __init__(self, *, handler, **kwargs):
+        super().__init__(**kwargs)
+        self.handler = handler
+
+    async def callback(self, interaction):
+        fields = self.handler.introspect_schema().get(self.label, [])
+        df = self.handler.run_query(self.label, fields)
+        filename = f"{self.label}.csv"
+        df.to_csv(filename, index=False)
+        await interaction.response.send_message("Your query results:", file=discord.File(filename))
 
 
 @bot.event
@@ -56,7 +81,10 @@ async def get_api_key(int: discord.Interaction):
         await user.dm_channel.send('API key received!')
         return message.content
     
+
 async def handle_interaction(int: discord.Interaction, subgraph_id: str, type: str):
+    # Defer the interaction immediately
+    await int.response.defer()
     try:
         # Rate limit
         user_id = int.user.id
@@ -68,41 +96,39 @@ async def handle_interaction(int: discord.Interaction, subgraph_id: str, type: s
             return
 
         user = int.user
-        # logger.info(f"{int.data.name} command by {user} {subgraph_id}")
-        try:
-            embed = discord.Embed(
-                description=f"<@{user.id}> wants to use {int.data['name']} command! 🤖💬",
-                color=discord.Color.green(),
-            )
-            if type == 'hello':
-                embed.add_field(name=user.name, value=subgraph_id)
-            else:
-                embed.add_field(name="Subgraph ID", value=subgraph_id)
-            await int.response.send_message(embed=embed)
-            response = await int.original_response()
-        except Exception as e:
-            logger.exception(e)
-            await int.response.send_message(
-                f"Failed to start chat {str(e)}", ephemeral=True
-            )
+
+        embed = discord.Embed(
+            description=f"<@{user.id}> wants to use {int.data['name']} command! 🤖💬",
+            color=discord.Color.green(),
+        )
+        if type == 'hello':
+            embed.add_field(name=user.name, value=subgraph_id)
+        else:
+            embed.add_field(name="Subgraph ID", value=subgraph_id)
+        response = await int.followup.send(embed=embed)
+        response = await int.channel.fetch_message(response.id)
+
+        if not int.guild:
+            await int.followup.send("This command can only be used within a server.", ephemeral=True)
             return
 
         thread = await response.create_thread(
-            name=f"{int.command.name} by {user.name}",
-            slowmode_delay=1,
-            reason="interaction-command",
-            auto_archive_duration=60,
+            name=f"{int.data['name']} by {user.name}",
+            # slowmode_delay=1,
+            # reason="interaction-command",
+            # auto_archive_duration=60,
         )
+        
         async with thread.typing():
             if type == 'hello':
                 await thread.send(f"{int.command.name} command activated, {subgraph_id}!")
             else:
                 initial_message = (f"Hello {user.mention},\n\n"
                                    "You have started a **subgraph query**.\n\n"
-                                   "**Step 1:** I have sent you a private message asking for your Playgrounds API key. Please respond there.\n\n"
-                                   "**Step 2:** Once I have received your API key, I will fetch a list of entities from the specified subgraph. \n\n"
-                                   "**Step 3:** You will then need to send the name of the entity you wish to query. \n\n"
-                                   "**Step 4:** I will run the query and return the result in a CSV file.")
+                                   "Step 1: I have sent you a private message asking for your Playgrounds API key. Please respond there.\n\n"
+                                   "Step 2: Once I have received your API key, I will fetch a list of entities from the specified subgraph. \n\n"
+                                   "Step 3: You will then need to send the name of the entity you wish to query. \n\n"
+                                   "Step 4: I will run the query and return the result in a CSV file.")
                 await thread.send(initial_message)
                 api_key = await get_api_key(int)
                 await thread.send("API key received!")  # Don't reveal the API key
@@ -122,62 +148,39 @@ async def handle_interaction(int: discord.Interaction, subgraph_id: str, type: s
                 # Return the list of entities to the user as buttons
                 view = EntitySelectionView(entities, int, handler)
                 await thread.send(f"Select an entity from the buttons below:", view=view)
-                
+
                 # The EntitySelectionView will handle the button presses and stop listening after a button is pressed
                 await view.wait()  # Wait for the view to stop listening
 
-    # More specific exception handling
     except discord.Forbidden:
         logger.exception("Bot lacks permissions to perform an action")
-        await int.followup.send(
-            "The bot lacks permissions to perform an action.", ephemeral=True
-        )
-        
+        await int.followup.send("The bot lacks permissions to perform an action.", ephemeral=True)
+
     except Exception as e:
         logger.exception(e)
-        # Here's the enhanced error logging
         logger.exception(f"Unexpected error: {e}")
-        await int.followup.send(
-            f"Failed to start chat {str(e)}", ephemeral=True
-        )
+        await int.followup.send(f"Failed to start chat {str(e)}", ephemeral=True)
 
 async def handle_ai_interaction(int: discord.Interaction, question: str):
     try:
-        # Immediate feedback to user
-        await int.response.send_message("Processing your request...")
-        
-        # The rest of your AI processing
+        await int.response.defer()
         ai_service = AILangChain()
         response = ai_service.ask(question)
-        response_parts = response[0][1].split("```")  # Splitting the response at code blocks
-        
-        # Filtering out empty strings and reconstructing the code blocks
+        response_parts = response[0][1].split("```")
         response_parts = [f"```{part} ```" if i%2 == 1 else part for i, part in enumerate(response_parts) if part.strip()]
-        
-        # Create an embed for a structured response
         embed = discord.Embed(color=discord.Color.blue())
         embed.set_author(name=f"Question by @{int.user.name}", icon_url=int.user.display_avatar.url)
         embed.add_field(name="**Question:**", value=f"```{question}```", inline=False)
-        
         for part in response_parts:
-            title = "**Response:**" if "```" not in part else ""  # Using the title only for text responses
+            title = "**Response:**" if "```" not in part else ""
             embed.add_field(name=title, value=part, inline=False)
-        
-        # Send the AI's response as an embed
         await int.followup.send(embed=embed)
-
     except discord.errors.NotFound:
-        # Log the error and potentially retry
         logger.error("Failed to send message due to expired or unknown interaction.")
         
 async def handle_subgraph_search(int: discord.Interaction, query: str):
-    logger.info(f"Received subgraph search command with query: {query}")
-    
-    # Defer the response immediately
     await int.response.defer()
-
     try:
-        # Rate limit
         user_id = int.user.id
         if user_id in user_timestamps and time.time() - user_timestamps[user_id] < 1.0:
             logger.warning(f"Rate limit exceeded for user ID: {user_id}")
@@ -188,32 +191,42 @@ async def handle_subgraph_search(int: discord.Interaction, query: str):
             logger.warning("Interaction not in a TextChannel. Aborting.")
             return
 
-        mongo_service = MongoHandler()
-        logger.info(f"Searching MongoDB with query: {query}")
-        items = mongo_service.perform_general_search(query)
-        logger.info(f"Found {len(items)} results for query: {query}")
+        user = int.user
 
-        if len(items) > 5:
-            logger.info("Displaying top 5 results in Discord.")
-            # Display the results in an embed for Discord
-            results = mongo_service.display_results(items)
-            for name, description, url in results:
-                embed = discord.Embed(title=name, description=description, url=url)
-                await int.followup.send(embed=embed)
-            
-            logger.info("Saving all results to CSV.")
-            # Save all results to CSV
-            message = mongo_service.save_to_csv(items)
-            await int.followup.send(message)
+        # Set up the embed message
+        embed = discord.Embed(title="Subgraph Search Initiated 🔍", color=discord.Color.blue())
+        embed.set_author(name=int.user.name, icon_url=int.user.display_avatar.url)
+        embed.description = f"Searching subgraph catalog for all subgraphs related to: **{query}**\n\nPlease open this thread to view the subgraphs I find."
+        embed.set_footer(text="Requested on")
+        embed.timestamp = datetime.datetime.utcnow()
+        response = await int.followup.send(embed=embed)
+        response = await int.channel.fetch_message(response.id)
 
-        else:
-            logger.info(f"Displaying all {len(items)} results in Discord.")
-            # Display the results in an embed for Discord
-            results = mongo_service.display_results(items)
-            for name, description, url in results:
-                embed = discord.Embed(title=name, description=description, url=url)
-                await int.followup.send(embed=embed)
+        # Create the thread
+        thread = await response.create_thread(
+            name=f"{int.data['name']} by {user.name}",
+            auto_archive_duration=60,
+        )
+
+        async with thread.typing():
+            mongo_service = MongoHandler()
+            items = mongo_service.perform_general_search(query)
+
+            if len(items) > 5:
+                results = mongo_service.display_results(items)
+                for name, description, url in results:
+                    embed = discord.Embed(title=name, description=description, url=url)
+                    await thread.send(embed=embed)
+                csv_file_path = mongo_service.save_to_csv(items)
+                await thread.send("I found a lot of subgraphs, here's a csv file with all of their urls:", file=discord.File(csv_file_path))
+                os.remove(csv_file_path)
+            else:
+                results = mongo_service.display_results(items)
+                for name, description, url in results:
+                    embed = discord.Embed(title=name, description=description, url=url)
+                    await thread.send(embed=embed)
 
     except Exception as e:
         logger.exception(f"Unexpected error during subgraph search: {e}")
         await int.followup.send(f"Failed to search subgraphs: {str(e)}", ephemeral=True)
+

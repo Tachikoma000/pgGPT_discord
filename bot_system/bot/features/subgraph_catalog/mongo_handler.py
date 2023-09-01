@@ -36,8 +36,9 @@ class MongoHandler:
         df['name'] = df['location_metadata'].apply(lambda x: x.get('name', ''))
         df['description'] = df['description'].apply(lambda x: x[0].get('value', '') if isinstance(x, list) else '')
         df.drop(columns=['location_metadata'], inplace=True)
+        filename = "search_results.csv"
         df.to_csv("search_results.csv", index=False)
-        return "Results saved to search_results.csv"
+        return filename
 
     def display_results(self, items) -> list:
         results = []

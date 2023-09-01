@@ -5,3 +5,10 @@ __pycache__/
 *.egg-info/
 *.git/
 *.env
+config.py
+note.privatenotes
+.privatenotes
+mongo_interface.py
+mongo_interface.ipynb
+mongo_search.py
+mongo_text_index.py
