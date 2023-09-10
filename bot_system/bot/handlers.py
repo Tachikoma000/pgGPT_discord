@@ -4,7 +4,7 @@ import logging
 import datetime
 import motor.motor_asyncio
 import traceback 
-from llm_system.pgGPT import AILangChain
+from llm_system.pgGPT_v2 import AILangChainV2
 from .config import bot, user_timestamps, BASE_URL, logger
 from .utilities import send_with_retry
 from .views import EntitySelectionView
@@ -15,6 +15,7 @@ from nextcord.ui import View, Button
 from nextcord import ButtonStyle
 from nextcord.ext import commands
 
+ai_service = AILangChainV2()
 
 class EntitySelectionView(View):
     def __init__(self, entities, interaction, handler):
@@ -38,7 +39,16 @@ class EntityButton(Button):
         filename = f"{self.label}.csv"
         df.to_csv(filename, index=False)
         await interaction.response.send_message("Your query results:", file=discord.File(filename))
-
+        
+def check_embed_length(embed):
+    total_length = 0
+    total_length += len(embed.author.name) if embed.author else 0
+    total_length += len(embed.title) if embed.title else 0
+    total_length += len(embed.description) if embed.description else 0
+    total_length += len(embed.footer.text) if embed.footer else 0
+    for field in embed.fields:
+        total_length += len(field.name) + len(field.value)
+    return total_length
 
 @bot.event
 async def on_ready():
@@ -161,23 +171,29 @@ async def handle_interaction(int: discord.Interaction, subgraph_id: str, type: s
         logger.exception(f"Unexpected error: {e}")
         await int.followup.send(f"Failed to start chat {str(e)}", ephemeral=True)
 
-async def handle_ai_interaction(int: discord.Interaction, question: str):
+async def handle_ai_interaction(int, question):
     try:
         await int.response.defer()
-        ai_service = AILangChain()
+        global ai_service
         response = ai_service.ask(question)
-        response_parts = response[0][1].split("```")
-        response_parts = [f"```{part} ```" if i%2 == 1 else part for i, part in enumerate(response_parts) if part.strip()]
-        embed = discord.Embed(color=discord.Color.blue())
-        embed.set_author(name=f"Question by @{int.user.name}", icon_url=int.user.display_avatar.url)
-        embed.add_field(name="**Question:**", value=f"```{question}```", inline=False)
-        for part in response_parts:
-            title = "**Response:**" if "```" not in part else ""
-            embed.add_field(name=title, value=part, inline=False)
-        await int.followup.send(embed=embed)
+        print(f"AI response: {response}")
+
+        if not response:
+            await int.followup.send("Error occurred while processing your request.")
+            return
+        
+        await int.followup.send(response)  # Send the AI's response as plain text
+    except discord.errors.HTTPException as e:
+        if "Must be 1024 or fewer in length" in str(e):
+            await int.followup.send("My response is too long for Discord's limits. Please refine your question or ask in parts.")
+        else:
+            await int.followup.send("An unexpected error occurred. Please try again later.")
     except discord.errors.NotFound:
         logger.error("Failed to send message due to expired or unknown interaction.")
-        
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        await int.followup.send("An unexpected error occurred. Please try again later.")
+
 async def handle_subgraph_search(int: discord.Interaction, query: str):
     await int.response.defer()
     try:

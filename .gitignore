@@ -5,6 +5,7 @@ pgdiscord
 pgbot
 pgai
 pgllm
+experiments
 
 __pycache__/
 *.py[cod]
