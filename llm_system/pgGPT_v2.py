@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Set the logging level to DEBUG for detailed logs
 
 formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
-file_handler = logging.FileHandler('pggpt_llm_layer.log')  # Save logs to file
+file_handler = logging.FileHandler('./loggers/pggpt_llm_layer.log')  # Save logs to file
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
@@ -134,8 +134,8 @@ class AILangChainV2:
                 service_context=service_context
             )
             # Persist the created indexes
-            self.kg_index.storage_context.persist(persist_dir="kg_storage")
-            self.vector_index.storage_context.persist(persist_dir="vector_storage")
+            self.kg_index.storage_context.persist(persist_dir="./storage/kg_storage")
+            self.vector_index.storage_context.persist(persist_dir="./storage/vector_storage")
 
         # Set up retrievers
         vector_retriever = VectorIndexRetriever(index=self.vector_index, similarity_top_k=2)

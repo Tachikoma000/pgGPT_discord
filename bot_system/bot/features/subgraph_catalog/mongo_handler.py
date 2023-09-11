@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)  # Set the logging level to DEBUG for detailed logs
 
 formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
-file_handler = logging.FileHandler('pggpt_mongo_handler.log')  # Save logs to file
+file_handler = logging.FileHandler('./loggers/pggpt_mongo_handler.log')  # Save logs to file
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
