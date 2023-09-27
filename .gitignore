@@ -1,4 +1,3 @@
-config.py
 __pycache__
 pgdiscord
 .pytest_cache
@@ -6,6 +5,7 @@ pgbot
 pgai
 pgllm
 experiments
+bkups
 
 __pycache__/
 *.py[cod]

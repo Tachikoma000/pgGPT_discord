@@ -1,15 +1,29 @@
 import os
 import logging
-# import discord
 import asyncio
 from .config import bot, user_timestamps, BASE_URL, logger
 import nextcord as discord
 
 class EntitySelectionView(discord.ui.View):
-    """A View for selecting an entity from the provided list."""
+    """
+    A Discord UI View for selecting an entity from the provided list.
+    
+    Attributes:
+        entities (list): List of entities to choose from.
+        interaction (discord.Interaction): The Discord interaction context.
+        handler (object): Handler that contains methods to process entity data.
+    """
     
     def __init__(self, entities, interaction, handler):
-        super().__init__(timeout=300.0)  # Set timeout for 120 seconds, for example
+        """
+        Initialize the EntitySelectionView.
+        
+        Args:
+            entities (list): List of entities to choose from.
+            interaction (discord.Interaction): The Discord interaction context.
+            handler (object): Handler that contains methods to process entity data.
+        """
+        super().__init__(timeout=300.0)  # Set timeout for 300 seconds
         self.entities = entities
         self.interaction = interaction
         self.handler = handler
@@ -19,6 +33,12 @@ class EntitySelectionView(discord.ui.View):
             self.add_item(button)
     
     async def entity_button_callback(self, interaction: discord.Interaction):
+        """
+        Callback function executed when an entity button is pressed.
+        
+        Args:
+            interaction (discord.Interaction): The Discord interaction context.
+        """
         user = interaction.user
         try:
             entity_name = interaction.data["custom_id"].split("_")[1]
@@ -28,7 +48,7 @@ class EntitySelectionView(discord.ui.View):
             filename = f"{entity_name}_query_result.csv"
             self.handler.query_to_csv(df, filename)
             
-            # Check file size
+            # Check if the file size is larger than the Discord upload limit (8MB)
             file_size = os.path.getsize(filename)
             if file_size > 8 * 1024 * 1024:  # 8MB in bytes
                 await interaction.response.send_message(f"The file for {entity_name} is too large to send on Discord. Please try a different entity or reduce the queried data.")
@@ -40,7 +60,6 @@ class EntitySelectionView(discord.ui.View):
             self.stop()  # Stop this view from listening to further interactions
 
         except discord.errors.NotFound:
-            # Error message to inform the user about the issue
             error_message = ("Sorry, there was an issue processing your request. "
                             "Please try pressing the button again. If the problem persists, contact the bot administrator.")
             
@@ -48,7 +67,7 @@ class EntitySelectionView(discord.ui.View):
             for attempt in range(1, max_retries + 1):
                 try:
                     await interaction.followup.send(error_message, ephemeral=True)  # Using followup since the initial interaction might have expired
-                    break  # If successful, exit the loop
+                    break
                 except discord.errors.NotFound:
                     if attempt == max_retries:
                         logger.error("Failed to send followup message after max retries due to expired or unknown interaction.")
@@ -65,25 +84,5 @@ class EntitySelectionView(discord.ui.View):
                     logger.error(f"Failed to send followup message on attempt {attempt}: {e}")
 
         except Exception as e:
-            # General error handling for other unforeseen issues
+            # Log any other unexpected errors
             logger.error(f"Unexpected error: {e}")
-            
-
-# class FeedbackForm(discord.ui.View):
-#     def __init__(self):
-#         super().__init__(timeout=180)
-        
-#         # Adding a Text Input component
-#         self.add_item(nc.ui.TextInput(
-#             label="Your Feedback",
-#             custom_id="feedback_text_input",
-#             placeholder="Type your feedback here...",
-#             min_length=1,
-#             max_length=500  # Assuming a max length of 500 characters
-#         ))
-        
-#     @discord.ui.text_input(custom_id="feedback_text_input")
-#     async def handle_text_input(self, interaction: discord.Interaction, value: str):
-#         # Handle the feedback received
-#         await interaction.response.send_message(f"Received your feedback: {value}")
-

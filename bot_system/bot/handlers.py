@@ -34,9 +34,8 @@ import time
 import logging
 import datetime
 import motor.motor_asyncio
-from .constants import API_KEY_TIMEOUT
 from llm_system.pgGPT_v2 import AILangChainV2
-from .config import bot, user_timestamps, BASE_URL, logger
+from .config import bot, user_timestamps, BASE_URL, logger, API_KEY_TIMEOUT
 from .utilities import send_with_retry
 from .views import EntitySelectionView
 from .features.graphql_query.graphql_handler import GraphQLHandler
@@ -66,6 +65,14 @@ ai_service = AILangChainV2()
 class EntitySelectionView(View):
     """Represents a UI view where users can select entities from a list."""
     def __init__(self, entities, interaction, handler):
+        """
+        Initialize the EntitySelectionView.
+        
+        Args:
+            entities (list): List of entities to choose from.
+            interaction (discord.Interaction): The Discord interaction context.
+            handler (object): Handler that contains methods to process entity data.
+        """
         super().__init__(timeout=None)
         self.interaction = interaction
         self.handler = handler
@@ -79,6 +86,13 @@ class EntitySelectionView(View):
 class EntityButton(Button):
     """Represents a button associated with an entity."""
     def __init__(self, *, handler, **kwargs):
+        """
+        Initialize the EntityButton.
+        
+        Args:
+            handler (object): Handler that contains methods to process entity data.
+            kwargs (dict): Additional keyword arguments.
+        """
         super().__init__(**kwargs)
         self.handler = handler
 

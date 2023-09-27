@@ -61,7 +61,12 @@ class AILangChainV2:
     """The main class that integrates the retrievers and the AI language model."""
 
     def __init__(self):
-        """Initialize components for document retrieval and AI language model interactions."""
+        """
+        Initialize components for document retrieval and AI language model interactions.
+        
+        Raises:
+            ValueError: If the OpenAI API key is not available.
+        """
         
         if not OPENAI_API_KEY:
             logger.error("Missing OpenAI API key!")
@@ -117,6 +122,8 @@ class AILangChainV2:
             # If not persisted, create the indexes
             graph_storage_context = StorageContext.from_defaults(graph_store=graph_store)
             vector_storage_context = StorageContext.from_defaults(vector_store=vector_store)
+            
+            print("starting kg indexing")
 
             # Create knowledge graph index
             self.kg_index = KnowledgeGraphIndex.from_documents(
@@ -126,6 +133,8 @@ class AILangChainV2:
                 service_context=service_context,
                 include_embeddings=True,
             )
+            
+            print("completed kg indexing")
 
             # Create vector index
             self.vector_index = VectorStoreIndex.from_documents(
@@ -153,6 +162,7 @@ class AILangChainV2:
             "https://docs.playgrounds.network/subgrounds/.\n"
             "2. If needing a Subgrounds query, emulate document examples using sg.query_df for results. Cite relevant references and include the website link.\n"
             "Adhere closely to the document's content and examples."
+            "If a question is not related to subgrounds or playgrounds or The Graph, respond with 'I cannot answer this question, happy to assist with relevant questions.'"
         )
 
         qa_template = PromptTemplate(teaching_prompt_text)
@@ -162,7 +172,18 @@ class AILangChainV2:
         logger.info("AILangChainV2 initialized successfully.")
 
     def ask(self, query):
-        """Process a user query using the query engine and return the AI's response."""
+        """
+        Process a user query using the query engine and return the AI's response.
+        
+        Args:
+            query (str): The user's input query.
+        
+        Returns:
+            str: The response from the AI model.
+        
+        Raises:
+            ValueError: If the AI's response is not structured as expected.
+        """
         try:
             response = self.query_engine.query(query)
             
@@ -192,7 +213,18 @@ class CustomRetriever(BaseRetriever):
         kg_retriever: KGTableRetriever,
         mode: str = "OR",
     ) -> None:
-        """Initialize the custom retriever with the given vector and knowledge graph retrievers."""
+        """
+        Initialize the custom retriever with the given vector and knowledge graph retrievers.
+        
+        Args:
+            vector_retriever (VectorIndexRetriever): The retriever to perform vector-based search.
+            kg_retriever (KGTableRetriever): The retriever to perform knowledge graph-based search.
+            mode (str, optional): The mode of combining the results from the two retrievers. Defaults to "OR".
+                                   Acceptable values are "AND" and "OR".
+        
+        Raises:
+            ValueError: If an invalid mode is provided.
+        """
         self._vector_retriever = vector_retriever
         self._kg_retriever = kg_retriever
         if mode not in ("AND", "OR"):
@@ -200,7 +232,15 @@ class CustomRetriever(BaseRetriever):
         self._mode = mode
 
     def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
-        """Retrieve nodes given a query bundle using both vector and knowledge graph retrievers."""
+        """
+        Retrieve nodes given a query bundle using both vector and knowledge graph retrievers.
+        
+        Args:
+            query_bundle (QueryBundle): The query bundle containing the user's input query.
+        
+        Returns:
+            List[NodeWithScore]: A list of nodes with scores retrieved based on the user's query.
+        """
         vector_nodes = self._vector_retriever.retrieve(query_bundle)
         kg_nodes = self._kg_retriever.retrieve(query_bundle)
 
@@ -216,5 +256,5 @@ class CustomRetriever(BaseRetriever):
             retrieve_ids = vector_ids.union(kg_ids)
 
         retrieve_nodes = [combined_dict[rid] for rid in retrieve_ids]
-        logger.debug(f"Retrieved nodes for query: {query_bundle.query}. Node IDs: {retrieve_ids}")
+        # logger.debug(f"Retrieved nodes for query: {query_bundle.query}. Node IDs: {retrieve_ids}")
         return retrieve_nodes
